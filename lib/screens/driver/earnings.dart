@@ -70,10 +70,11 @@ class _EarningsScreenState extends State<EarningsScreen> {
                       child: Panel(
                         padding: const EdgeInsets.all(12),
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(s['label'].toString(), style: const TextStyle(fontSize: 12, color: Y.ardoise)),
+                          // Réduit plutôt que tronqué : lisible même avec une grande taille de police.
+                          FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(s['label'].toString(), maxLines: 1, style: const TextStyle(fontSize: 12, color: Y.ardoise))),
                           const SizedBox(height: 4),
-                          Text(s['earnings_label'].toString(), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
-                          Text('${s['rides']} course(s)', style: const TextStyle(fontSize: 12, color: Y.ardoise)),
+                          FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(s['earnings_label'].toString(), maxLines: 1, style: const TextStyle(fontWeight: FontWeight.w700))),
+                          FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text('${s['rides']} course(s)', maxLines: 1, style: const TextStyle(fontSize: 12, color: Y.ardoise))),
                         ]),
                       ),
                     ),

@@ -90,13 +90,14 @@ class WithdrawalCardState extends State<WithdrawalCard> {
 
     return Panel(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          const Expanded(child: Text('Retirer mes gains', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16))),
-          if (pending == null && available > 0 && available >= minimum)
-            FilledButton.icon(onPressed: _busy ? null : _request, icon: const Icon(Icons.payments_outlined, size: 18), label: const Text('Retirer')),
-        ]),
+        const Text('Retirer mes gains', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
         const SizedBox(height: 4),
         Text('Disponible : ${money(available)} · minimum ${money(minimum)}', style: const TextStyle(color: Y.ardoise)),
+        // Bouton pleine largeur sous le texte (le thème donne aux boutons toute la largeur disponible).
+        if (pending == null && available > 0 && available >= minimum) ...[
+          const SizedBox(height: 12),
+          FilledButton.icon(onPressed: _busy ? null : _request, icon: const Icon(Icons.payments_outlined, size: 20), label: const Text('Demander un retrait')),
+        ],
         if (pending != null) ...[
           const SizedBox(height: 12),
           Container(
