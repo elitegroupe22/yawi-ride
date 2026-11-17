@@ -196,10 +196,12 @@ que pour Google Play est demandé.
 | `APP_STORE_CONNECT_KEY_IDENTIFIER` | Key ID de la clé API |
 | `APP_STORE_CONNECT_PRIVATE_KEY` | contenu de `AuthKey_XXXX.p8` |
 | `CERTIFICATE_PRIVATE_KEY` | contenu de `yawi_ios_cert_key` |
-| `GOOGLE_SERVICE_INFO_PLIST` | contenu de `GoogleService-Info.plist` |
 
+Les fichiers Firebase (`android/app/google-services.json`, `ios/Runner/GoogleService-Info.plist`) sont versionnés
+dans le dépôt privé `elitegroupe22/yawi-ride` : aucun secret Firebase à créer.
+Le build iOS se lance à la demande (Actions → iOS → Run workflow) ou sur une étiquette de version (`git tag v1.0.1`).
 Variable `UPLOAD_TESTFLIGHT` = `true` pour envoyer chaque build sur TestFlight. Sans les secrets, le workflow
-fait une compilation de contrôle non signée. Le certificat et le profil de distribution sont créés automatiquement.
+fait une compilation de contrôle non signée (validée : Xcode 26.6, Firebase inclus). Le certificat et le profil de distribution sont créés automatiquement.
 Attention : les minutes macOS des dépôts **privés** sont décomptées 10 fois plus vite que Linux.
 
 **Codemagic** (alternative, 500 minutes macOS gratuites par mois) : connecter le dépôt, ajouter la clé API
