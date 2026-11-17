@@ -134,6 +134,7 @@ class _TopUpSheetState extends State<_TopUpSheet> {
   String? _method;
   bool _busy = false;
   String? _status;
+  String? _error; // affichée dans la fenêtre : un toast passerait sous la feuille modale
 
   Map<String, dynamic> get _cfg => context.read<Session>().payments;
 
@@ -155,7 +156,11 @@ class _TopUpSheetState extends State<_TopUpSheet> {
       return;
     }
     final api = context.read<Session>().api;
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+      _error = null;
+      _status = null;
+    });
     try {
       final res = await api.post('/wallet/topup', {'amount': _value, if (_method != null) 'method': _method});
       if (!mounted) return;
@@ -174,7 +179,12 @@ class _TopUpSheetState extends State<_TopUpSheet> {
       }
       if (mounted) Navigator.pop(context, 'Paiement en cours de confirmation. Votre solde sera mis à jour automatiquement.');
     } catch (e) {
-      if (mounted) toastError(context, e);
+      if (mounted) {
+        setState(() {
+          _status = null;
+          _error = e is ApiException ? e.message : 'Le rechargement n\'a pas pu démarrer. Réessayez.';
+        });
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -232,6 +242,17 @@ class _TopUpSheetState extends State<_TopUpSheet> {
             ),
           ],
           if (_status != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_status!, textAlign: TextAlign.center, style: const TextStyle(color: Y.ardoise))),
+          if (_error != null)
+            Container(
+              margin: const EdgeInsets.only(top: 10),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: const Color(0xFFFDECEC), borderRadius: BorderRadius.circular(12)),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Icon(Icons.error_outline, color: Color(0xFFC62828), size: 20),
+                const SizedBox(width: 8),
+                Expanded(child: Text(_error!, style: const TextStyle(color: Color(0xFF8E1B1B), fontWeight: FontWeight.w600))),
+              ]),
+            ),
           const SizedBox(height: 14),
           BusyButton(label: 'Payer ${money(_value)}', busy: _busy, onPressed: _value > 0 ? _pay : null),
         ]),

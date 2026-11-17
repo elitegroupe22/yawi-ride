@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -14,13 +16,55 @@ String money(num value, [String currency = 'GNF']) {
   return '${value < 0 ? '−' : ''}$b $currency';
 }
 
+OverlayEntry? _toastEntry;
+Timer? _toastTimer;
+
+/// Message bref affiché en haut de l'écran, au-dessus de tout (y compris des fenêtres du bas et des dialogues).
 void toast(BuildContext context, String message, {bool error = false}) {
-  final m = ScaffoldMessenger.maybeOf(context);
-  m?.hideCurrentSnackBar();
-  m?.showSnackBar(SnackBar(
-    content: Text(message, style: const TextStyle(fontWeight: FontWeight.w700)),
-    backgroundColor: error ? Y.alerte : Y.nuit,
-  ));
+  final overlay = Overlay.maybeOf(context, rootOverlay: true);
+  if (overlay == null) return;
+  _toastTimer?.cancel();
+  _toastEntry?.remove();
+  late final OverlayEntry entry;
+  entry = OverlayEntry(
+    builder: (ctx) => Positioned(
+      left: 16,
+      right: 16,
+      top: MediaQuery.of(ctx).padding.top + 12,
+      child: Material(
+        color: Colors.transparent,
+        child: GestureDetector(
+          onTap: () {
+            if (_toastEntry == entry) {
+              entry.remove();
+              _toastEntry = null;
+            }
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: error ? Y.alerte : Y.nuit,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 16, offset: Offset(0, 6))],
+            ),
+            child: Row(children: [
+              Icon(error ? Icons.error_outline : Icons.check_circle_outline, color: Colors.white, size: 20),
+              const SizedBox(width: 10),
+              Expanded(child: Text(message, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700))),
+            ]),
+          ),
+        ),
+      ),
+    ),
+  );
+  _toastEntry = entry;
+  overlay.insert(entry);
+  _toastTimer = Timer(Duration(milliseconds: error ? 5000 : 3500), () {
+    if (_toastEntry == entry) {
+      entry.remove();
+      _toastEntry = null;
+    }
+  });
 }
 
 void toastError(BuildContext context, Object e) =>
