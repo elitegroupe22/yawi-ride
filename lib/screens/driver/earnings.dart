@@ -5,6 +5,7 @@ import '../../core/api.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
 import '../../widgets/ui.dart';
+import 'withdrawal.dart';
 
 class EarningsScreen extends StatefulWidget {
   const EarningsScreen({super.key});
@@ -15,6 +16,7 @@ class EarningsScreen extends StatefulWidget {
 
 class _EarningsScreenState extends State<EarningsScreen> {
   Map<String, dynamic>? _data;
+  final _retrait = GlobalKey<WithdrawalCardState>();
   String? _error;
 
   @override
@@ -44,7 +46,9 @@ class _EarningsScreenState extends State<EarningsScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Mes gains')),
       body: RefreshIndicator(
-        onRefresh: _load,
+        onRefresh: () async {
+          await Future.wait([_load(), if (_retrait.currentState != null) _retrait.currentState!.reload()]);
+        },
         child: d == null
             ? ListView(children: [if (_error != null) RetryView(message: _error!, onRetry: _load) else const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))])
             : ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 24), children: [
@@ -57,6 +61,8 @@ class _EarningsScreenState extends State<EarningsScreen> {
                     Text(d['wallet_label'].toString(), style: const TextStyle(fontFamily: Y.display, fontSize: 24, color: Colors.white)),
                   ]),
                 ),
+                const SizedBox(height: 12),
+                WithdrawalCard(key: _retrait, onChanged: _load),
                 const SizedBox(height: 12),
                 Row(children: [
                   for (final s in summary) ...[
