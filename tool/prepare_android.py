@@ -153,6 +153,7 @@ PERMISSIONS = [
     "android.permission.POST_NOTIFICATIONS",
     "android.permission.VIBRATE",
     "android.permission.WAKE_LOCK",
+    "android.permission.CAMERA",  # scan des cartes de transport (navettes)
 ]
 
 QUERIES = """    <queries>

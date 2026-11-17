@@ -6,6 +6,7 @@ import '../account/account.dart';
 import 'dashboard.dart';
 import 'earnings.dart';
 import 'onboarding.dart';
+import 'shuttles.dart';
 
 /// Navigation du chauffeur. Tant que le dossier n'est pas validé, l'onglet principal est le dossier.
 class DriverShell extends StatefulWidget {
@@ -23,6 +24,7 @@ class _DriverShellState extends State<DriverShell> {
     final approved = context.watch<Session>().driverApproved;
     final pages = [
       approved ? const DriverDashboard() : const OnboardingScreen(),
+      if (approved) const ShuttlesScreen(),
       if (approved) const EarningsScreen(),
       const AccountScreen(),
     ];
@@ -37,6 +39,7 @@ class _DriverShellState extends State<DriverShell> {
           approved
               ? const NavigationDestination(icon: Icon(Icons.local_taxi_outlined), selectedIcon: Icon(Icons.local_taxi), label: 'Conduite')
               : const NavigationDestination(icon: Icon(Icons.assignment_outlined), selectedIcon: Icon(Icons.assignment), label: 'Mon dossier'),
+          if (approved) const NavigationDestination(icon: Icon(Icons.directions_bus_outlined), selectedIcon: Icon(Icons.directions_bus), label: 'Navettes'),
           if (approved) const NavigationDestination(icon: Icon(Icons.payments_outlined), selectedIcon: Icon(Icons.payments), label: 'Gains'),
           const NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Compte'),
         ],

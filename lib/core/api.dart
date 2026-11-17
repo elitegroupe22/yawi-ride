@@ -4,10 +4,16 @@ import 'config.dart';
 
 /// Erreur lisible renvoyée par l'API (message du serveur ou message réseau en français).
 class ApiException implements Exception {
-  ApiException(this.message, {this.status, this.errors = const {}});
+  ApiException(this.message, {this.status, this.errors = const {}, this.body = const {}});
 
   final String message;
   final int? status;
+
+  /// Corps de la réponse d'erreur (ex. « reason » et « passenger » d'un scan refusé).
+  final Map<String, dynamic> body;
+
+  /// Pas de réponse du serveur (pas de réseau, délai dépassé).
+  bool get offline => status == null;
   final Map<String, String> errors;
 
   bool get unauthorized => status == 401;
@@ -100,6 +106,6 @@ class Api {
         _ => 'Le service est momentanément indisponible. Réessayez dans un instant.',
       };
     }
-    return ApiException(message, status: status, errors: errors);
+    return ApiException(message, status: status, errors: errors, body: body);
   }
 }

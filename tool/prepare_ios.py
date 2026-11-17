@@ -64,7 +64,7 @@ def info_plist():
     p["NSLocationWhenInUseUsageDescription"] = (
         "Yawi utilise votre position pour vous trouver un chauffeur à proximité, vous guider et partager le trajet en cours.")
     p["NSCameraUsageDescription"] = (
-        "Yawi utilise l'appareil photo pour photographier les pièces du dossier chauffeur et votre photo de profil.")
+        "Yawi utilise l'appareil photo pour scanner les cartes de transport des passagers, photographier les pièces du dossier chauffeur et votre photo de profil.")
     p["NSPhotoLibraryUsageDescription"] = (
         "Yawi accède à vos photos pour joindre les pièces du dossier chauffeur et votre photo de profil.")
     p["UIBackgroundModes"] = ["remote-notification"]
