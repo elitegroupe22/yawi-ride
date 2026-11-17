@@ -15,10 +15,12 @@
 #   UPLOAD_TESTFLIGHT                 « true » pour envoyer chaque build signé sur TestFlight
 name: iOS
 
+# Les minutes macOS comptent 10 fois : pas de build à chaque envoi, seulement à la demande
+# (Actions → iOS → Run workflow) ou pour une version étiquetée (git tag v1.0.1 && git push --tags).
 on:
   workflow_dispatch:
   push:
-    branches: [main, master]
+    tags: ['v*']
 
 concurrency:
   group: ios-${{ github.ref }}
