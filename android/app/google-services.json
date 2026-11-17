@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "504131294985",
+    "project_id": "yawi-27cde",
+    "storage_bucket": "yawi-27cde.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:504131294985:android:50af9c75ac6cc0fcb3a5d8",
+        "android_client_info": {
+          "package_name": "gn.yawi.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC5uUTMbxQ8v1owfbOWMmyxP7E-J_usCJg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

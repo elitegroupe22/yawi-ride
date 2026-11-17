@@ -9,16 +9,14 @@ build/
 *.iml
 .idea/
 
-# Android — secrets de signature et Firebase (jamais dans le dépôt)
+# Android — secrets de signature (jamais dans le dépôt). Les fichiers Firebase sont versionnés : dépôt privé, configuration client non secrète.
 android/key.properties
 android/app/*.jks
 android/app/*.keystore
-android/app/google-services.json
 android/local.properties
 android/.gradle/
 
-# iOS — Firebase et signature (jamais dans le dépôt)
-ios/Runner/GoogleService-Info.plist
+# iOS — signature (jamais dans le dépôt)
 *.p8
 *.p12
 *.mobileprovision
