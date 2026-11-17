@@ -1,0 +1,27 @@
+# Flutter / Dart
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+*.iml
+.idea/
+
+# Android — secrets de signature et Firebase (jamais dans le dépôt)
+android/key.properties
+android/app/*.jks
+android/app/*.keystore
+android/app/google-services.json
+android/local.properties
+android/.gradle/
+
+# iOS — Firebase et signature (jamais dans le dépôt)
+ios/Runner/GoogleService-Info.plist
+*.p8
+*.p12
+*.mobileprovision
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/ephemeral/

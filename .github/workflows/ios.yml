@@ -1,0 +1,97 @@
+# Construction de l'application iOS Yawi (Flutter) sur un Mac GitHub (macOS 26, Xcode 26).
+# Apple exige Xcode 26 / SDK iOS 26 pour tout envoi sur App Store Connect depuis le 28/04/2026.
+#
+# Sans secrets : compilation de contrôle non signée (vérifie que le projet compile).
+# Avec les secrets : IPA signé pour l'App Store, envoyé sur TestFlight si la variable UPLOAD_TESTFLIGHT vaut « true ».
+#
+# Secrets du dépôt (Settings → Secrets and variables → Actions) :
+#   APP_STORE_CONNECT_ISSUER_ID       Issuer ID (App Store Connect → Utilisateurs et accès → Intégrations → Clés)
+#   APP_STORE_CONNECT_KEY_IDENTIFIER  Key ID de la clé API (rôle « App Manager »)
+#   APP_STORE_CONNECT_PRIVATE_KEY     contenu du fichier AuthKey_XXXX.p8
+#   CERTIFICATE_PRIVATE_KEY           clé RSA privée servant au certificat de distribution (voir README)
+#   GOOGLE_SERVICE_INFO_PLIST         contenu de GoogleService-Info.plist (Firebase, notifications) — facultatif
+# Variables (facultatives) :
+#   YAWI_URL                          adresse du serveur (par défaut https://yawi.elitegroupe-sarl.com)
+#   UPLOAD_TESTFLIGHT                 « true » pour envoyer chaque build signé sur TestFlight
+name: iOS
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      YAWI_URL: ${{ vars.YAWI_URL || 'https://yawi.elitegroupe-sarl.com' }}
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APP_STORE_CONNECT_KEY_IDENTIFIER }}
+      APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+      CERTIFICATE_PRIVATE_KEY: ${{ secrets.CERTIFICATE_PRIVATE_KEY }}
+      BUILD_NUMBER: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Version de Xcode
+        run: xcodebuild -version
+
+      - name: Firebase (notifications push)
+        env:
+          GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
+        run: |
+          if [ -n "$GOOGLE_SERVICE_INFO_PLIST" ]; then
+            mkdir -p ios/Runner
+            printf '%s' "$GOOGLE_SERVICE_INFO_PLIST" > ios/Runner/GoogleService-Info.plist
+            echo "GoogleService-Info.plist installé."
+          else
+            echo "::warning::Secret GOOGLE_SERVICE_INFO_PLIST absent : l'application sera construite sans notifications push."
+          fi
+
+      - name: Projet iOS (génération + configuration Yawi)
+        run: python3 tool/prepare_ios.py
+
+      - run: flutter pub get
+
+      - name: Compilation de contrôle (non signée)
+        if: env.APP_STORE_CONNECT_PRIVATE_KEY == ''
+        run: |
+          echo "::warning::Secrets App Store Connect absents : compilation non signée, non installable."
+          flutter build ios --release --no-codesign --dart-define=YAWI_URL=$YAWI_URL --build-number=$BUILD_NUMBER
+
+      - name: Signature (certificat et profil App Store)
+        if: env.APP_STORE_CONNECT_PRIVATE_KEY != ''
+        run: |
+          pipx install codemagic-cli-tools
+          keychain initialize
+          app-store-connect fetch-signing-files "gn.yawi.app" --type IOS_APP_STORE --create
+          keychain add-certificates
+          xcode-project use-profiles
+
+      - name: IPA (App Store)
+        if: env.APP_STORE_CONNECT_PRIVATE_KEY != ''
+        run: |
+          flutter build ipa --release --dart-define=YAWI_URL=$YAWI_URL --build-number=$BUILD_NUMBER \
+            --export-options-plist="$HOME/export_options.plist"
+
+      - name: Envoi sur TestFlight
+        if: env.APP_STORE_CONNECT_PRIVATE_KEY != '' && vars.UPLOAD_TESTFLIGHT == 'true'
+        run: app-store-connect publish --path "$(ls build/ios/ipa/*.ipa | head -1)"
+
+      - uses: actions/upload-artifact@v4
+        if: env.APP_STORE_CONNECT_PRIVATE_KEY != ''
+        with:
+          name: yawi-ios-${{ github.run_number }}
+          path: build/ios/ipa/*.ipa
+          if-no-files-found: error
+          retention-days: 30

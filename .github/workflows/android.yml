@@ -1,0 +1,101 @@
+# Construction de l'application Android Yawi (Flutter).
+# Dépôt séparé du site : l'application parle à l'API du back-office (YAWI_URL/api/v1).
+# Produit un APK (installation directe) et un AAB (Google Play), signés si les secrets sont définis.
+#
+# Secrets du dépôt (Settings → Secrets and variables → Actions) :
+#   ANDROID_KEYSTORE_BASE64   keystore de publication encodé en base64 (voir README.md)
+#   ANDROID_KEYSTORE_PASSWORD mot de passe du keystore
+#   ANDROID_KEY_ALIAS         alias de la clé (ex. yawi)
+#   ANDROID_KEY_PASSWORD      mot de passe de la clé
+#   GOOGLE_SERVICES_JSON      contenu de google-services.json (Firebase, notifications push) — facultatif
+# Variable (facultative) :
+#   YAWI_URL                  adresse du serveur (par défaut https://yawi.elitegroupe-sarl.com)
+name: Android
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+  pull_request:
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      YAWI_URL: ${{ vars.YAWI_URL || 'https://yawi.elitegroupe-sarl.com' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Firebase (notifications push)
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            mkdir -p android/app
+            printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+            echo "google-services.json installé."
+          else
+            echo "::warning::Secret GOOGLE_SERVICES_JSON absent : l'application sera construite sans notifications push."
+          fi
+
+      - name: Projet Android (génération + configuration Yawi)
+        run: python3 tool/prepare_android.py
+
+      - name: Signature de publication
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > android/app/yawi-release.jks
+            cat > android/key.properties <<PROPS
+          storeFile=yawi-release.jks
+          storePassword=$KEYSTORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          PROPS
+            sed -i 's/^ *//' android/key.properties
+            echo "Signature de publication configurée."
+          else
+            echo "::warning::Keystore absent : build signé avec la clé de debug (installable, mais refusé par Google Play)."
+          fi
+
+      - run: flutter pub get
+
+      - name: Analyse du code
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Tests
+        run: flutter test
+
+      - name: APK
+        run: flutter build apk --release --dart-define=YAWI_URL=$YAWI_URL --build-number=${{ github.run_number }}
+
+      - name: App Bundle (Google Play)
+        run: flutter build appbundle --release --dart-define=YAWI_URL=$YAWI_URL --build-number=${{ github.run_number }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yawi-android-${{ github.run_number }}
+          path: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+          retention-days: 30
