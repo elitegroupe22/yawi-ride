@@ -9,10 +9,16 @@ import '../../widgets/ui.dart';
 
 /// Retrait des gains : solde disponible, demande en cours, historique et formulaire de demande.
 class WithdrawalCard extends StatefulWidget {
-  const WithdrawalCard({super.key, this.onChanged});
+  const WithdrawalCard({super.key, this.onChanged, this.fallbackBalance, @visibleForTesting this.initial});
 
   /// Appelé après une demande ou une annulation (pour rafraîchir le solde de l'écran parent).
   final VoidCallback? onChanged;
+
+  /// Solde affiché tant que les informations de retrait ne sont pas chargées.
+  final String? fallbackBalance;
+
+  /// Données fournies directement (aperçus et tests) : pas d'appel réseau.
+  final Map<String, dynamic>? initial;
 
   @override
   State<WithdrawalCard> createState() => WithdrawalCardState();
@@ -25,7 +31,11 @@ class WithdrawalCardState extends State<WithdrawalCard> {
   @override
   void initState() {
     super.initState();
-    reload();
+    if (widget.initial != null) {
+      _d = widget.initial;
+    } else {
+      reload();
+    }
   }
 
   Future<void> reload() async {
@@ -33,7 +43,7 @@ class WithdrawalCardState extends State<WithdrawalCard> {
       final res = await context.read<Session>().api.get('/driver/withdrawals');
       if (mounted) setState(() => _d = res);
     } on ApiException catch (_) {
-      // Carte facultative : l'écran des gains reste utilisable sans elle.
+      // Facultatif : sans ces informations, l'écran garde le solde simple.
     }
   }
 
@@ -44,8 +54,8 @@ class WithdrawalCardState extends State<WithdrawalCard> {
         title: const Text('Annuler la demande ?'),
         content: const Text('Le montant redevient disponible immédiatement.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Non')),
-          TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Annuler la demande')),
+          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Garder')),
+          TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Annuler la demande', style: TextStyle(color: Y.alerte))),
         ],
       ),
     );
@@ -82,58 +92,238 @@ class WithdrawalCardState extends State<WithdrawalCard> {
   @override
   Widget build(BuildContext context) {
     final d = _d;
-    if (d == null) return const SizedBox.shrink();
+    if (d == null) return _BalanceHero(balance: widget.fallbackBalance ?? '');
+
+    final balance = (d['balance'] as num?)?.toDouble() ?? 0;
     final available = (d['available'] as num?)?.toDouble() ?? 0;
     final minimum = (d['minimum'] as num?)?.toDouble() ?? 0;
     final pending = d['pending'] == null ? null : Map<String, dynamic>.from(d['pending'] as Map);
-    final history = ((d['requests'] as List?) ?? []).map((e) => Map<String, dynamic>.from(e as Map)).where((w) => w['status'] != 'pending').take(5).toList();
+    final reserved = pending == null ? 0.0 : ((pending['amount'] as num?)?.toDouble() ?? 0);
+    final canRequest = pending == null && available > 0 && available >= minimum;
+    final history = ((d['requests'] as List?) ?? [])
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .where((w) => w['status'] != 'pending')
+        .take(5)
+        .toList();
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      _BalanceHero(
+        balance: money(balance),
+        footer: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          const SizedBox(height: 16),
+          Container(height: 1, color: Colors.white.withValues(alpha: .12)),
+          const SizedBox(height: 14),
+          Row(children: [
+            Expanded(child: _HeroFigure(label: 'Disponible au retrait', value: money(available))),
+            if (reserved > 0) Expanded(child: _HeroFigure(label: 'Réservé', value: money(reserved), muted: true)),
+          ]),
+          const SizedBox(height: 16),
+          if (canRequest)
+            FilledButton.icon(
+              onPressed: _busy ? null : _request,
+              style: FilledButton.styleFrom(backgroundColor: Y.braiseBtn, foregroundColor: Colors.white),
+              icon: const Icon(Icons.payments_outlined, size: 20),
+              label: const Text('Demander un retrait'),
+            )
+          else
+            Text(
+              pending != null
+                  ? 'Une demande est en cours : vous pourrez en faire une autre après son versement.'
+                  : 'Retrait possible à partir de ${money(minimum)} disponibles.',
+              style: const TextStyle(color: Color(0xFFC9D2DE), fontSize: 13),
+            ),
+        ]),
+      ),
+      if (pending != null) ...[
+        const SizedBox(height: 12),
+        _PendingCard(w: pending, busy: _busy, onCancel: () => _cancel(pending['reference'].toString())),
+      ],
+      if (history.isNotEmpty) ...[
+        const SectionTitle('Retraits précédents'),
+        Panel(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: Column(children: [
+            for (final w in history) ...[
+              _HistoryRow(w: w),
+              if (w != history.last) const Divider(height: 1),
+            ],
+          ]),
+        ),
+      ],
+    ]);
+  }
+}
+
+/// Solde du chauffeur (bandeau bleu nuit), avec en pied le disponible et le bouton de retrait.
+class _BalanceHero extends StatelessWidget {
+  const _BalanceHero({required this.balance, this.footer});
+  final String balance;
+  final Widget? footer;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(color: Y.nuit, borderRadius: BorderRadius.circular(Y.rCard)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        const Text('Solde chauffeur', style: TextStyle(color: Color(0xFFC9D2DE))),
+        const SizedBox(height: 4),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(balance, style: const TextStyle(fontFamily: Y.display, fontSize: 28, color: Colors.white)),
+        ),
+        if (footer != null) footer!,
+      ]),
+    );
+  }
+}
+
+class _HeroFigure extends StatelessWidget {
+  const _HeroFigure({required this.label, required this.value, this.muted = false});
+  final String label;
+  final String value;
+  final bool muted;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFFC9D2DE), fontSize: 12)),
+      const SizedBox(height: 2),
+      FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Text(value, style: TextStyle(color: muted ? const Color(0xFFFFC9A8) : Colors.white, fontWeight: FontWeight.w800, fontSize: 17)),
+      ),
+    ]);
+  }
+}
+
+/// Demande en cours : montant, étapes, destination de l'argent, annulation.
+class _PendingCard extends StatelessWidget {
+  const _PendingCard({required this.w, required this.busy, required this.onCancel});
+  final Map<String, dynamic> w;
+  final bool busy;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final method = w['method']?.toString() ?? '';
+    final rows = <(IconData, String, String)>[
+      (Icons.account_balance_wallet_outlined, 'Moyen', w['method_label'].toString()),
+      if (w['payee_phone'] != null) (Icons.phone_iphone, 'Numéro', w['payee_phone'].toString()),
+      if (method == 'bank' && w['bank_name'] != null) (Icons.account_balance_outlined, 'Banque', w['bank_name'].toString()),
+      if (method == 'bank' && w['bank_account'] != null) (Icons.numbers, 'Compte', w['bank_account'].toString()),
+      if (w['payee_name'] != null) (Icons.person_outline, 'Au nom de', w['payee_name'].toString()),
+      if (w['payee_phone'] == null && w['payee_name'] == null && w['bank_name'] == null) (Icons.place_outlined, 'Destination', w['destination'].toString()),
+      (Icons.event_outlined, 'Demandé le', w['created_at'].toString()),
+      (Icons.tag, 'Référence', w['reference'].toString()),
+    ];
 
     return Panel(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Retirer mes gains', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-        const SizedBox(height: 4),
-        Text('Disponible : ${money(available)} · minimum ${money(minimum)}', style: const TextStyle(color: Y.ardoise)),
-        // Bouton pleine largeur sous le texte (le thème donne aux boutons toute la largeur disponible).
-        if (pending == null && available > 0 && available >= minimum) ...[
-          const SizedBox(height: 12),
-          FilledButton.icon(onPressed: _busy ? null : _request, icon: const Icon(Icons.payments_outlined, size: 20), label: const Text('Demander un retrait')),
-        ],
-        if (pending != null) ...[
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: const Color(0xFFFFF4D6), borderRadius: BorderRadius.circular(Y.rCtrl)),
-            child: Row(children: [
-              const Icon(Icons.hourglass_top_rounded, color: Color(0xFF7A5300)),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text('${pending['amount_label']} en attente de versement\n${pending['destination']}',
-                    style: const TextStyle(color: Color(0xFF7A5300), fontWeight: FontWeight.w600)),
+      padding: const EdgeInsets.all(18),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          const Expanded(child: Text('Retrait en cours', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16))),
+          _StatusChip(status: 'pending', label: w['status_label']?.toString() ?? 'En attente'),
+        ]),
+        const SizedBox(height: 6),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(w['amount_label'].toString(), style: const TextStyle(fontFamily: Y.display, fontSize: 24, color: Y.nuit)),
+        ),
+        const SizedBox(height: 14),
+        const _Steps(current: 1),
+        const SizedBox(height: 14),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+          decoration: BoxDecoration(color: Y.brume, borderRadius: BorderRadius.circular(Y.rCtrl)),
+          child: Column(children: [
+            for (final r in rows)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Icon(r.$1, size: 18, color: Y.ardoise),
+                  const SizedBox(width: 10),
+                  SizedBox(width: 92, child: Text(r.$2, style: const TextStyle(color: Y.ardoise, fontSize: 13))),
+                  Expanded(child: Text(r.$3, textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14))),
+                ]),
               ),
-              TextButton(onPressed: _busy ? null : () => _cancel(pending['reference'].toString()), child: const Text('Annuler')),
-            ]),
-          ),
-        ] else if (available < minimum)
-          const Padding(padding: EdgeInsets.only(top: 6), child: Text('Le retrait sera possible dès que le minimum sera atteint.', style: TextStyle(color: Y.ardoise, fontSize: 13))),
-        if (history.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          const Divider(height: 1),
-          for (final w in history)
-            Padding(
-              padding: const EdgeInsets.only(top: 10),
-              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('${w['amount_label']} · ${w['method_label']}', style: const TextStyle(fontWeight: FontWeight.w700)),
-                    Text('${w['created_at']}${w['transaction_ref'] != null ? ' · réf. ${w['transaction_ref']}' : ''}', style: const TextStyle(color: Y.ardoise, fontSize: 12)),
-                    if (w['status'] == 'rejected' && w['admin_note'] != null)
-                      Text('Motif : ${w['admin_note']}', style: const TextStyle(color: Y.alerte, fontSize: 12)),
-                  ]),
+          ]),
+        ),
+        const SizedBox(height: 12),
+        const Text('Yawi vous prévient par notification dès que l\'argent est envoyé.', style: TextStyle(color: Y.ardoise, fontSize: 13)),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: busy ? null : onCancel,
+          style: OutlinedButton.styleFrom(foregroundColor: Y.alerte, side: const BorderSide(color: Color(0xFFF2C4CB))),
+          icon: const Icon(Icons.close, size: 18),
+          label: const Text('Annuler la demande'),
+        ),
+      ]),
+    );
+  }
+}
+
+/// Avancement : demande envoyée → versement par Yawi → argent reçu.
+class _Steps extends StatelessWidget {
+  const _Steps({required this.current});
+  final int current; // 0 envoyée, 1 versement en cours, 2 reçu
+
+  @override
+  Widget build(BuildContext context) {
+    const labels = ['Demande\nenvoyée', 'Versement\npar Yawi', 'Argent\nreçu'];
+    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      for (var i = 0; i < labels.length; i++) ...[
+        Expanded(
+          child: Column(children: [
+            Row(children: [
+              Expanded(child: Container(height: 3, color: i == 0 ? Colors.transparent : (i <= current ? Y.braise : Y.trait))),
+              Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: i < current ? Y.feuille : (i == current ? Y.braise : Y.craie),
+                  border: Border.all(color: i <= current ? Colors.transparent : Y.trait, width: 2),
                 ),
-                _StatusChip(status: w['status'].toString(), label: w['status_label'].toString()),
-              ]),
-            ),
-        ],
+                child: i < current
+                    ? const Icon(Icons.check, size: 15, color: Colors.white)
+                    : (i == current ? const Icon(Icons.more_horiz, size: 15, color: Colors.white) : null),
+              ),
+              Expanded(child: Container(height: 3, color: i == labels.length - 1 ? Colors.transparent : (i < current ? Y.braise : Y.trait))),
+            ]),
+            const SizedBox(height: 6),
+            Text(labels[i], textAlign: TextAlign.center, style: TextStyle(fontSize: 12, height: 1.2, color: i <= current ? Y.nuit : Y.ardoise, fontWeight: i == current ? FontWeight.w700 : FontWeight.w500)),
+          ]),
+        ),
+      ],
+    ]);
+  }
+}
+
+class _HistoryRow extends StatelessWidget {
+  const _HistoryRow({required this.w});
+  final Map<String, dynamic> w;
+
+  @override
+  Widget build(BuildContext context) {
+    final sub = [w['method_label'], w['processed_at'] ?? w['created_at'], if (w['transaction_ref'] != null) 'réf. ${w['transaction_ref']}'].whereType<Object>().join(' · ');
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(w['amount_label'].toString(), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+            const SizedBox(height: 2),
+            Text(sub, style: const TextStyle(color: Y.ardoise, fontSize: 12.5)),
+            if (w['status'] == 'rejected' && w['admin_note'] != null)
+              Padding(padding: const EdgeInsets.only(top: 4), child: Text('Motif : ${w['admin_note']}', style: const TextStyle(color: Y.alerte, fontSize: 12.5))),
+          ]),
+        ),
+        const SizedBox(width: 8),
+        _StatusChip(status: w['status'].toString(), label: w['status_label'].toString()),
       ]),
     );
   }

@@ -52,17 +52,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
         child: d == null
             ? ListView(children: [if (_error != null) RetryView(message: _error!, onRetry: _load) else const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))])
             : ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 24), children: [
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(color: Y.nuit, borderRadius: BorderRadius.circular(Y.rCard)),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('Solde chauffeur', style: TextStyle(color: Color(0xFFC9D2DE))),
-                    const SizedBox(height: 4),
-                    Text(d['wallet_label'].toString(), style: const TextStyle(fontFamily: Y.display, fontSize: 24, color: Colors.white)),
-                  ]),
-                ),
-                const SizedBox(height: 12),
-                WithdrawalCard(key: _retrait, onChanged: _load),
+                WithdrawalCard(key: _retrait, onChanged: _load, fallbackBalance: d['wallet_label']?.toString()),
                 const SizedBox(height: 12),
                 Row(children: [
                   for (final s in summary) ...[
