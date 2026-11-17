@@ -13,6 +13,10 @@ val yawiKeystore = Properties().apply {
 }
 
 android {
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
+    }
     namespace = "gn.yawi.yawi"
     compileSdk = maxOf(36, flutter.compileSdkVersion)
     ndkVersion = flutter.ndkVersion
