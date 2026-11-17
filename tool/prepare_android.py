@@ -123,6 +123,9 @@ def patch_gradle():
     has_firebase = (APP / "google-services.json").exists()
     if has_firebase and "com.google.gms.google-services" not in s:
         s = sub_once(r'(\n(\s*)id\("com\.android\.application"\)[^\n]*)', r'\1\n\2id("com.google.gms.google-services")', s, "plugins (com.android.application)")
+    elif not has_firebase:
+        # Sans google-services.json, le plugin ferait échouer le build : on le retire (relancer après ajout du fichier).
+        s = re.sub(r'\n\s*id\("com\.google\.gms\.google-services"\)(?! version)[^\n]*', "", s)
     kts.write_text(s)
 
     settings = ANDROID / "settings.gradle.kts"
