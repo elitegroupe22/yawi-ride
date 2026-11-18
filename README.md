@@ -225,6 +225,11 @@ captures iPhone 6,9 pouces (1320 × 2868), description, mots-clés, URL de suppo
 classification par âge, **compte de démonstration** passager et chauffeur pour la vérification Apple, puis
 « Soumettre pour vérification ». Apple exige aussi la suppression du compte dans l'app (déjà présente).
 
+## Navettes (chauffeur) et sécurité (client)
+
+- Onglet **Navettes** du chauffeur : scan continu des cartes d'employés (QR signé), file hors ligne, assistant de proximité.
+- `lib/core/presence.dart` : la position du client est envoyée à Yawi à l'ouverture (si déjà autorisée), toutes les 15 s en course, et immédiatement quand l'équipe d'urgence la demande (notification de type `locate`).
+
 ## Limites connues de cette première version
 
 - Le chauffeur doit garder l'application ouverte pour que sa position soit envoyée (pas de service de
