@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/alerts.dart';
 import '../../core/api.dart';
+import '../../core/presence.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
 import '../../widgets/sos.dart';
@@ -73,6 +74,8 @@ class _RideScreenState extends State<RideScreen> with WidgetsBindingObserver {
       }
       _lastStatus = status;
       if (r['is_active'] != true) _timer?.cancel();
+      // Pendant la course, la position du client est visible par l'équipe d'urgence.
+      if (r['is_active'] == true) Presence.instance.report(minGap: const Duration(seconds: 15));
 
       // Le chauffeur relance le passager : sonnerie jusqu'à confirmation
       final nudge = r['nudge_at'] as int?;

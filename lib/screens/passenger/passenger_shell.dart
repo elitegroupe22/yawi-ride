@@ -1,8 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/alerts.dart';
+import '../../core/presence.dart';
+import '../../core/session.dart';
 import '../account/account.dart';
 import 'home.dart';
 import 'ride_tracking.dart';
@@ -17,7 +20,7 @@ class PassengerShell extends StatefulWidget {
   State<PassengerShell> createState() => _PassengerShellState();
 }
 
-class _PassengerShellState extends State<PassengerShell> {
+class _PassengerShellState extends State<PassengerShell> with WidgetsBindingObserver {
   int _tab = 0;
   StreamSubscription<String>? _opened;
   final _ridesKey = GlobalKey<RidesScreenState>();
@@ -27,6 +30,15 @@ class _PassengerShellState extends State<PassengerShell> {
   void initState() {
     super.initState();
     _opened = Alerts.instance.opened.stream.listen(_route);
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) Presence.instance.start(context.read<Session>().api);
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) Presence.instance.report();
   }
 
   /// Notification touchée : ouvre la course ou le portefeuille concerné.
@@ -43,6 +55,8 @@ class _PassengerShellState extends State<PassengerShell> {
   @override
   void dispose() {
     _opened?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    Presence.instance.stop();
     super.dispose();
   }
 
