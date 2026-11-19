@@ -72,6 +72,8 @@ class Calls extends ChangeNotifier {
   Future<void> checkIncoming() async {
     if (_api == null || busy) return;
     try {
+      // Un appel est déjà à l'écran (il sonne ou vient d'être décroché) : rien à faire.
+      if ((await FlutterCallkitIncoming.activeCalls()).isNotEmpty) return;
       final c = (await _api!.get('/calls/incoming'))['call'];
       if (c is Map && c['status'] == 'ringing') {
         final other = Map<String, dynamic>.from(c['other'] as Map? ?? {});
@@ -104,7 +106,10 @@ class Calls extends ChangeNotifier {
     final id = d['call_id']?.toString();
     if (id == null || id.isEmpty) return;
     if (type == 'call') {
-      if (instance.busy && instance.callId != id) return; // déjà en ligne : l'appel sera manqué
+      if (instance.busy) return; // déjà en ligne (ou cet appel est déjà décroché)
+      try {
+        if ((await FlutterCallkitIncoming.activeCalls()).any((c) => c.id == id)) return; // déjà affiché
+      } catch (_) {}
       await FlutterCallkitIncoming.showCallkitIncoming(_params(
         id,
         d['caller_name']?.toString() ?? 'Yawi',
@@ -181,7 +186,7 @@ class Calls extends ChangeNotifier {
       case CallEventActionCallIncoming(:final callKitParams):
         if (_api != null) _watchRinging(callKitParams.id);
       case CallEventActionCallAccept(:final callKitParams):
-        if (callId != callKitParams.id || phase != CallPhase.talking) unawaited(_answer(callKitParams.id));
+        unawaited(_answer(callKitParams.id));
       case CallEventActionCallDecline(:final callKitParams):
         unawaited(_api?.post('/calls/${callKitParams.id}/hangup').catchError((_) => <String, dynamic>{}));
         if (callId == callKitParams.id) _finish('Appel refusé');
@@ -227,9 +232,13 @@ class Calls extends ChangeNotifier {
 
   // ---------- Appel entrant ----------
 
+  /// Appel déjà décroché (ou en cours de connexion) : un second « Répondre » est ignoré.
+  /// Sinon l'application rejoindrait deux fois le salon et LiveKit couperait la première connexion.
+  bool _handling(String id) => callId == id && (phase == CallPhase.connecting || phase == CallPhase.talking);
+
   Future<void> _answer(String id) async {
     final api = _api;
-    if (api == null) return;
+    if (api == null || _handling(id)) return;
     _reset(CallPhase.connecting);
     callId = id;
     onShowCallScreen?.call();
@@ -273,9 +282,17 @@ class Calls extends ChangeNotifier {
           notifyListeners();
         }
       })
-      ..on<lk.ParticipantDisconnectedEvent>((_) => hangUp(reason: 'Appel terminé'))
-      ..on<lk.RoomDisconnectedEvent>((_) {
-        if (busy) hangUp(reason: 'Connexion perdue');
+      ..on<lk.ParticipantDisconnectedEvent>((_) {
+        // L'autre personne peut se reconnecter (réseau mobile) : on ne raccroche que si elle n'est pas revenue.
+        Future.delayed(const Duration(seconds: 4), () {
+          if (identical(_room, room) && room.remoteParticipants.isEmpty && phase == CallPhase.talking) {
+            hangUp(reason: 'Appel terminé');
+          }
+        });
+      })
+      ..on<lk.RoomDisconnectedEvent>((e) {
+        // Seule la connexion en cours compte : une ancienne connexion fermée volontairement est ignorée.
+        if (identical(_room, room) && busy) hangUp(reason: 'Connexion perdue');
       });
     await room.connect(lkInfo['url'].toString(), lkInfo['token'].toString());
     await room.localParticipant?.setMicrophoneEnabled(true);
