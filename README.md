@@ -230,6 +230,13 @@ classification par âge, **compte de démonstration** passager et chauffeur pour
 - Onglet **Navettes** du chauffeur : scan continu des cartes d'employés (QR signé), file hors ligne, assistant de proximité.
 - `lib/core/presence.dart` : la position du client est envoyée à Yawi à l'ouverture (si déjà autorisée), toutes les 15 s en course, et immédiatement quand l'équipe d'urgence la demande (notification de type `locate`).
 
+## Appels par internet
+
+`lib/core/calls.dart` (LiveKit + flutter_callkit_incoming), `lib/screens/common/call_screen.dart`, `lib/widgets/call_options.dart`.
+- Android : le message Firebase `type=call` (données seules, prioritaire) affiche l'écran d'appel plein écran, même application fermée (`yawiBackgroundMessage`). Permissions micro, écran plein écran (Android 14 : déclaration « appels » dans la Play Console), service de premier plan « appel ».
+- iOS : PushKit (VoIP) → CallKit, dans `tool/ios/AppDelegate.swift` (copié par `prepare_ios.py`) ; jeton VoIP enregistré comme `ios_voip`. Mode d'arrière-plan `voip` + `audio`, texte d'autorisation du micro.
+- Une notification VoIP doit toujours afficher un appel (règle Apple) : le serveur ne l'utilise que pour faire sonner.
+
 ## Limites connues de cette première version
 
 - Le chauffeur doit garder l'application ouverte pour que sa position soit envoyée (pas de service de
