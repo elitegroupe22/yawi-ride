@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/alerts.dart';
+import '../../core/calls.dart';
 import '../../core/presence.dart';
 import '../../core/session.dart';
 import '../account/account.dart';
@@ -38,7 +39,10 @@ class _PassengerShellState extends State<PassengerShell> with WidgetsBindingObse
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) Presence.instance.report();
+    if (state == AppLifecycleState.resumed) {
+      Presence.instance.report();
+      Calls.instance.checkIncoming();
+    }
   }
 
   /// Notification touchée : ouvre la course ou le portefeuille concerné.

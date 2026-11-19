@@ -5,9 +5,11 @@ import 'package:provider/provider.dart';
 
 import 'core/alerts.dart';
 import 'core/api.dart';
+import 'core/calls.dart';
 import 'core/session.dart';
 import 'core/theme.dart';
 import 'screens/auth/welcome.dart';
+import 'screens/common/call_screen.dart';
 import 'screens/driver/driver_shell.dart';
 import 'screens/passenger/passenger_shell.dart';
 import 'widgets/ui.dart';
@@ -29,8 +31,18 @@ Future<void> main() async {
   } catch (_) {}
 
   final session = Session(Api());
-  session.onSignedIn = () => Alerts.instance.register(session.api);
-  session.onSigningOut = () => Alerts.instance.unregister();
+  session.onSignedIn = () async {
+    await Alerts.instance.register(session.api);
+    await Calls.instance.start(session.api);
+  };
+  session.onSigningOut = () async {
+    Calls.instance.stop();
+    await Alerts.instance.unregister();
+  };
+  Calls.instance.onShowCallScreen = () {
+    final nav = navigatorKey.currentState;
+    if (nav != null) CallScreen.show(nav);
+  };
 
   runApp(ChangeNotifierProvider.value(value: session, child: const YawiApp()));
   session.boot();

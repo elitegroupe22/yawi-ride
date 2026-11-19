@@ -154,7 +154,18 @@ PERMISSIONS = [
     "android.permission.VIBRATE",
     "android.permission.WAKE_LOCK",
     "android.permission.CAMERA",  # scan des cartes de transport (navettes)
+    # Appels par internet (LiveKit) et écran d'appel entrant (flutter_callkit_incoming)
+    "android.permission.RECORD_AUDIO",
+    "android.permission.MODIFY_AUDIO_SETTINGS",
+    "android.permission.BLUETOOTH_CONNECT",
+    "android.permission.USE_FULL_SCREEN_INTENT",
+    "android.permission.FOREGROUND_SERVICE",
+    "android.permission.FOREGROUND_SERVICE_PHONE_CALL",
+    "android.permission.FOREGROUND_SERVICE_MICROPHONE",
 ]
+
+# Permissions ajoutées par des bibliothèques mais inutiles à Yawi (évite une déclaration Play).
+REMOVED = ["android.permission.FOREGROUND_SERVICE_CAMERA"]
 
 QUERIES = """    <queries>
         <intent><action android:name="android.intent.action.DIAL" /><data android:scheme="tel" /></intent>
@@ -172,6 +183,12 @@ def patch_manifest():
     for p in PERMISSIONS:
         if p not in s:
             s = s.replace("<application", f'<uses-permission android:name="{p}" />\n    <application', 1)
+    if 'xmlns:tools=' not in s:
+        s = s.replace('<manifest xmlns:android="http://schemas.android.com/apk/res/android"',
+                      '<manifest xmlns:android="http://schemas.android.com/apk/res/android"\n    xmlns:tools="http://schemas.android.com/tools"', 1)
+    for p in REMOVED:
+        if p not in s:
+            s = s.replace("<application", f'<uses-permission android:name="{p}" tools:node="remove" />\n    <application', 1)
     s = re.sub(r'android:label="[^"]*"', f'android:label="{LABEL}"', s, count=1)
     if "networkSecurityConfig" not in s:
         s = s.replace("<application", '<application\n        android:networkSecurityConfig="@xml/network_security_config"', 1)

@@ -10,6 +10,7 @@ import '../../core/api.dart';
 import '../../core/presence.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
+import '../../widgets/call_options.dart';
 import '../../widgets/sos.dart';
 import '../../widgets/ui.dart';
 import '../../widgets/yawi_map.dart';
@@ -340,13 +341,18 @@ class _RideScreenState extends State<RideScreen> with WidgetsBindingObserver {
                 child: Text(d['plate'].toString(), style: const TextStyle(fontWeight: FontWeight.w700, letterSpacing: 1)),
               ),
           ])),
-          if (d['phone'] != null)
-            IconButton.filled(
-              style: IconButton.styleFrom(backgroundColor: Y.feuille, foregroundColor: Colors.white),
-              tooltip: 'Appeler',
-              onPressed: () => dial(d['phone'].toString()),
-              icon: const Icon(Icons.call),
+          IconButton.filled(
+            style: IconButton.styleFrom(backgroundColor: Y.feuille, foregroundColor: Colors.white),
+            tooltip: 'Appeler',
+            onPressed: () => CallOptions.show(
+              context,
+              reference: widget.reference,
+              name: d['name']?.toString() ?? 'le chauffeur',
+              phone: d['phone']?.toString(),
+              onNudge: ['accepted', 'arrived'].contains(_lastStatus) ? () => _act('nudge') : null,
             ),
+            icon: const Icon(Icons.call),
+          ),
         ]),
       );
 

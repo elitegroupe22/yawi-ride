@@ -13,6 +13,7 @@ import '../../core/location.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
 import '../../widgets/sos.dart';
+import '../../widgets/call_options.dart';
 import '../../widgets/ui.dart';
 import '../../widgets/yawi_map.dart';
 import '../common/navigation.dart';
@@ -481,12 +482,18 @@ class _DriverDashboardState extends State<DriverDashboard> with WidgetsBindingOb
                   style: const TextStyle(color: Y.ardoise, fontSize: 13),
                 ),
               ])),
-              if (p['phone'] != null)
-                IconButton.filled(
-                  style: IconButton.styleFrom(backgroundColor: Y.feuille),
-                  onPressed: () => dial(p['phone'].toString()),
-                  icon: const Icon(Icons.call, color: Colors.white),
+              IconButton.filled(
+                style: IconButton.styleFrom(backgroundColor: Y.feuille),
+                tooltip: 'Appeler',
+                onPressed: () => CallOptions.show(
+                  context,
+                  reference: ref,
+                  name: p['name']?.toString() ?? 'le client',
+                  phone: p['phone']?.toString(),
+                  onNudge: toPickup ? () => _act(ref, 'nudge') : null,
                 ),
+                icon: const Icon(Icons.call, color: Colors.white),
+              ),
               const SizedBox(width: 6),
               IconButton.filled(
                 style: IconButton.styleFrom(backgroundColor: Y.nuit),

@@ -67,7 +67,9 @@ def info_plist():
         "Yawi utilise l'appareil photo pour scanner les cartes de transport des passagers, photographier les pièces du dossier chauffeur et votre photo de profil.")
     p["NSPhotoLibraryUsageDescription"] = (
         "Yawi accède à vos photos pour joindre les pièces du dossier chauffeur et votre photo de profil.")
-    p["UIBackgroundModes"] = ["remote-notification"]
+    p["UIBackgroundModes"] = ["remote-notification", "voip", "audio"]
+    p["NSMicrophoneUsageDescription"] = (
+        "Yawi utilise le micro pour les appels par internet avec votre chauffeur, votre client ou le service client.")
     p["ITSAppUsesNonExemptEncryption"] = False  # HTTPS uniquement : pas de déclaration d'exportation
     p["LSApplicationQueriesSchemes"] = ["tel", "https", "whatsapp", "sms"]
     p["UISupportedInterfaceOrientations"] = ["UIInterfaceOrientationPortrait"]
@@ -80,21 +82,19 @@ def info_plist():
 
 
 def app_delegate():
+    """AppDelegate Yawi : délégué des notifications et appels VoIP (PushKit → CallKit)."""
     path = RUNNER / "AppDelegate.swift"
-    s = path.read_text()
-    if "UNUserNotificationCenter.current().delegate" in s:
-        return
-    if "import UserNotifications" not in s:
-        s = s.replace("import UIKit", "import UIKit\nimport UserNotifications", 1)
-    new, n = re.subn(
-        r"(didFinishLaunchingWithOptions launchOptions:[^\{]*\{\n)",
-        r"\1    // Notifications affichées application ouverte (flutter_local_notifications, sonnerie Yawi).\n"
-        r"    UNUserNotificationCenter.current().delegate = self\n",
-        s, count=1)
-    if n == 0:
-        sys.exit("[yawi] AppDelegate.swift : impossible d'ajouter le délégué des notifications.")
-    path.write_text(new)
-    log("AppDelegate : délégué des notifications ajouté.")
+    current = path.read_text() if path.exists() else ""
+    if "FlutterImplicitEngineDelegate" not in current and "GeneratedPluginRegistrant.register(with: self)" in current:
+        # Ancien modèle Flutter (sans scènes) : on garde son enregistrement des plugins.
+        tpl = (TOOL / "AppDelegate.swift").read_text()
+        tpl = tpl.replace(", FlutterImplicitEngineDelegate", "")
+        tpl = re.sub(r"\n  func didInitializeImplicitFlutterEngine.*?\n  }\n", "\n", tpl, flags=re.S)
+        tpl = tpl.replace("    voipRegistry = registry\n", "    voipRegistry = registry\n    GeneratedPluginRegistrant.register(with: self)\n")
+    else:
+        tpl = (TOOL / "AppDelegate.swift").read_text()
+    path.write_text(tpl)
+    log("AppDelegate : notifications et appels VoIP configurés.")
 
 
 def assets():

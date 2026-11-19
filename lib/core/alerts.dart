@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'api.dart';
+import 'calls.dart';
 import 'config.dart';
 
 /// Sonnerie des nouvelles demandes (chauffeur) et des relances.
@@ -124,8 +125,14 @@ class Alerts {
       return;
     }
 
+    // Appels entrants application fermée ou en arrière-plan (écran d'appel du système).
+    FirebaseMessaging.onBackgroundMessage(yawiBackgroundMessage);
     FirebaseMessaging.onMessage.listen((m) {
       final data = Map<String, dynamic>.from(m.data);
+      if (data['type'] == 'call' || data['type'] == 'call_end') {
+        Calls.handlePush(data);
+        return;
+      }
       received.add(data);
       final n = m.notification;
       if (n != null) show(n.title ?? 'Yawi', n.body ?? '', url: data['url']?.toString(), urgent: _isIOS ? m.notification?.apple?.sound?.name != 'bip.wav' : m.notification?.android?.channelId != _infos.id);
